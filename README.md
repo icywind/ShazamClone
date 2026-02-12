@@ -8,7 +8,7 @@ A modern iOS music recognition app built with SwiftUI and Apple's ShazamKit fram
 ![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)
 
 <p align="Left">
-  <img src="Docs/ScreenShots.png" alt="Shazam App Screenshots" style="max-width:90%; height:auto;">
+  <img src="Docs/Screenshots.png" alt="Shazam App Screenshots" style="max-width:90%; height:auto;">
 </p>
 
 
