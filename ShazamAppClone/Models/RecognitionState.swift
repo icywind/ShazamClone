@@ -13,7 +13,7 @@ enum RecognitionState: Equatable {
         case .idle:
             return "Tap to identify"
         case .recording:
-            return "Listening..."
+            return "Tap to cancel"
         case .processing:
             return "Identifying..."
         case .matched:

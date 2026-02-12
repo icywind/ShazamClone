@@ -127,7 +127,7 @@ struct RecordingButton: View {
         case .idle, .error:
             return "waveform"
         case .recording:
-            return "stop.fill"
+            return "xmark"
         case .processing:
             return "waveform.path.ecg"
         case .matched:

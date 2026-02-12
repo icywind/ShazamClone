@@ -57,13 +57,13 @@ final class ShazamViewModel: NSObject, ObservableObject {
     
     // MARK: - Public Methods
     
-    /// Toggle recording state (start/stop)
+    /// Toggle recording state (start/stop/cancel)
     func toggleRecording() {
         switch recognitionState {
         case .idle, .error:
             startRecording()
         case .recording:
-            stopRecording()
+            cancelRecording()
         case .processing:
             // Don't interrupt processing
             break
@@ -129,7 +129,7 @@ final class ShazamViewModel: NSObject, ObservableObject {
         }
     }
 
-    /// Stop recording audio
+    /// Stop recording audio and process
     func stopRecording() {
         // Stop audio engine
         audioEngine.stop()
@@ -153,7 +153,34 @@ final class ShazamViewModel: NSObject, ObservableObject {
 
         print("⏹️ Recording stopped, processing...")
     }
-    
+
+    /// Cancel recording without processing
+    func cancelRecording() {
+        // Stop audio engine
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+
+        // Stop timers
+        stopDurationTimer()
+        stopRemainingTimeTimer()
+        stopAudioLevelTimer()
+
+        // Deactivate audio session
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("⚠️ Failed to deactivate audio session: \(error.localizedDescription)")
+        }
+
+        // Reset to idle state without processing
+        recognitionState = .idle
+        recordingDuration = 0
+        audioLevel = 0
+        remainingTime = Int(maxRecordingDuration)
+
+        print("❌ Recording canceled")
+    }
+
     /// Reset and prepare for new recognition
     func resetAndStartNew() {
         recognitionState = .idle
@@ -231,6 +258,32 @@ final class ShazamViewModel: NSObject, ObservableObject {
         audioLevelTimer = nil
     }
 
+    /// Clean up recording resources (audio engine, timers, session)
+    private func cleanupRecording() {
+        // Stop audio engine if running
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+
+        // Stop all timers
+        stopDurationTimer()
+        stopRemainingTimeTimer()
+        stopAudioLevelTimer()
+
+        // Deactivate audio session
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("⚠️ Failed to deactivate audio session: \(error.localizedDescription)")
+        }
+
+        // Reset properties
+        audioLevel = 0
+        recordingStartTime = nil
+        recordingDuration = 0
+    }
+
     /// Calculate audio level from buffer for visualization
     private func updateAudioLevel(from buffer: AVAudioPCMBuffer) {
         guard let channelData = buffer.floatChannelData else { return }
@@ -257,8 +310,12 @@ extension ShazamViewModel: SHSessionDelegate {
             guard let mediaItem = match.mediaItems.first,
                   let result = SongRecognitionResult(from: mediaItem) else {
                 recognitionState = .error("No match found")
+                cleanupRecording()
                 return
             }
+
+            // Clean up recording resources
+            cleanupRecording()
 
             // Update state with result
             recognitionState = .matched(result)
@@ -269,6 +326,10 @@ extension ShazamViewModel: SHSessionDelegate {
     nonisolated func session(_ session: SHSession, didNotFindMatchFor signature: SHSignature, error: Error?) {
         Task { @MainActor in
             print("❌ No match found")
+
+            // Clean up recording resources
+            cleanupRecording()
+
             if let error = error {
                 print("Error: \(error.localizedDescription)")
                 recognitionState = .error("Recognition failed: \(error.localizedDescription)")
