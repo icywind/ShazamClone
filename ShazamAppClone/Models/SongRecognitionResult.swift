@@ -2,7 +2,7 @@ import Foundation
 import ShazamKit
 
 /// Model representing song recognition result from ShazamKit
-struct SongRecognitionResult: Identifiable, Equatable {
+struct SongRecognitionResult: Identifiable, Equatable, Hashable {
     let id = UUID()
     let uniqueID: String
     let title: String
@@ -58,6 +58,10 @@ struct SongRecognitionResult: Identifiable, Equatable {
     
     static func == (lhs: SongRecognitionResult, rhs: SongRecognitionResult) -> Bool {
         lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
 

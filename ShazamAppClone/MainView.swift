@@ -3,7 +3,8 @@ import SwiftUI
 /// Main view with recording functionality
 struct MainView: View {
     @ObservedObject var viewModel: ShazamViewModel
-    
+    @State private var selectedResult: SongRecognitionResult?
+
     var body: some View {
         ZStack {
             // Background gradient
@@ -13,22 +14,22 @@ struct MainView: View {
                 endPoint: .bottom
             )
             .ignoresSafeArea()
-            
+
             VStack(spacing: 30) {
                 Spacer()
-                
+
                 // Title
                 Text("Shazam")
                     .font(.system(size: 44, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                     .shadow(color: .purple.opacity(0.5), radius: 10)
-                
+
                 Text("Song Recognizer")
                     .font(.title2)
                     .foregroundColor(.gray)
-                
+
                 Spacer()
-                
+
                 // Recording indicator and button
                 VStack(spacing: 20) {
                     RecordingIndicatorView(
@@ -36,13 +37,13 @@ struct MainView: View {
                         audioLevel: viewModel.audioLevel,
                         remainingTime: viewModel.remainingTime
                     )
-                    
+
                     // Main recording button
                     RecordingButton(
                         state: viewModel.recognitionState,
                         action: viewModel.toggleRecording
                     )
-                    
+
                     // Status text
                     Text(viewModel.recognitionState.displayText)
                         .font(.headline)
@@ -50,20 +51,21 @@ struct MainView: View {
                         .transition(.opacity)
                         .animation(.easeInOut, value: viewModel.recognitionState)
                 }
-                
+
                 Spacer()
-                
-                // Result card (if matched)
+
+                // Result card (if matched) - tap to navigate
                 if case .matched(let result) = viewModel.recognitionState {
-                    SongResultView(result: result) {
-                        viewModel.resetAndStartNew()
+                    SongResultCard(result: result) {
+                        selectedResult = result
                     }
                     .transition(.scale.combined(with: .opacity))
                     .animation(.spring(), value: result.id)
+                    .padding(.horizontal)
                 }
-                
+
                 Spacer()
-                
+
                 // Footer
                 Text("Tap to identify any song")
                     .font(.caption)
@@ -72,6 +74,13 @@ struct MainView: View {
             }
             .padding()
         }
+        .navigationDestination(item: $selectedResult) { result in
+            SongResultDetailView(result: result) {
+                selectedResult = nil
+                viewModel.resetAndStartNew()
+            }
+        }
+        .navigationBarHidden(true)
     }
 }
 
@@ -86,24 +95,22 @@ struct RecordingButton: View {
                 // Outer ring with pulse animation when recording
                 Circle()
                     .stroke(
-                        state.isRecording ? Color.purple.opacity(0.5) : Color.white.opacity(0.3),
+                        outerRingColor,
                         lineWidth: state.isRecording ? 4 : 2
                     )
                     .frame(width: 140, height: 140)
-                    .scaleEffect(state.isRecording ? 1.1 : 1.0)
+                    .scaleEffect(state.isRecording || state.isMatched ? 1.1 : 1.0)
                     .animation(
-                        state.isRecording ? .easeInOut(duration: 1.0).repeatForever(autoreverses: true) : .default,
-                        value: state.isRecording
+                        state.isRecording ? .easeInOut(duration: 1.0).repeatForever(autoreverses: true) :
+                        state.isMatched ? .easeInOut(duration: 1.5).repeatForever(autoreverses: true) : .default,
+                        value: state.isRecording || state.isMatched
                     )
-                
+
                 // Inner circle
                 Circle()
-                    .fill(
-                        state.isRecording ? Color.red : 
-                            (state.canStartRecording ? Color.purple : Color.gray)
-                    )
+                    .fill(buttonColor)
                     .frame(width: 110, height: 110)
-                    .shadow(color: (state.isRecording ? Color.red : Color.purple).opacity(0.5), radius: 10)
+                    .shadow(color: shadowColor.opacity(0.5), radius: 10)
                 
                 // Icon
                 Image(systemName: iconName)
@@ -136,12 +143,51 @@ struct RecordingButton: View {
             return false
         }
     }
-    
+
     private var isMatched: Bool {
         if case .matched = state {
             return true
         }
         return false
+    }
+
+    private var buttonColor: Color {
+        switch state {
+        case .idle, .error:
+            return .purple
+        case .recording:
+            return .red
+        case .processing:
+            return .gray
+        case .matched:
+            return .green
+        }
+    }
+
+    private var shadowColor: Color {
+        switch state {
+        case .idle, .error:
+            return .purple
+        case .recording:
+            return .red
+        case .processing:
+            return .gray
+        case .matched:
+            return .green
+        }
+    }
+
+    private var outerRingColor: Color {
+        switch state {
+        case .idle, .error:
+            return Color.white.opacity(0.3)
+        case .recording:
+            return Color.purple.opacity(0.5)
+        case .processing:
+            return Color.white.opacity(0.3)
+        case .matched:
+            return Color.green.opacity(0.5)
+        }
     }
 }
 

@@ -9,12 +9,11 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var viewModel = ShazamViewModel()
-    var body: some View {
-        VStack {
-            MainView(viewModel: viewModel)
 
+    var body: some View {
+        NavigationStack {
+            MainView(viewModel: viewModel)
         }
-        .padding()
     }
 }
 
